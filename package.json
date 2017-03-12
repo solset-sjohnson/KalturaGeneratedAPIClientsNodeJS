@@ -29,7 +29,8 @@
   "dependencies": {
     "http": "*",
     "md5": "*",
-    "url": "*"
+    "url": "*",
+    "http-proxy-agent": "1.0.0"
   },
   "devDependencies": {
     "chai": "^3.5.0",

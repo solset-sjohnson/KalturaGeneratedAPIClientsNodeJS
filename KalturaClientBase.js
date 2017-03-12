@@ -34,6 +34,7 @@ const path = require('path');
 const http = require('http');
 const https = require('https');
 const querystring = require("querystring");
+const	 HttpsProxyAgent = require('https-proxy-agent');
 
 const kaltura = require('./KalturaRequestData');
 
@@ -118,6 +119,7 @@ class Configuration {
 		this.serviceUrl = 'http://www.kaltura.com';
 		this.serviceBase = '/api_v3/service';
 		this.timeout = 30000;
+		this.proxy = null;
 	}
 
 	/**
@@ -136,6 +138,17 @@ class Configuration {
 	 */
 	getLogger() {
 		return this.logger;
+	}
+
+
+	/**
+	 * Set http proxy host and port
+	 * @param host - hostname or ip address of proxy
+	 * @param port - port of proxy
+	 */
+	setProxy(host, port) {
+		this.logger.debug("Setting proxy: " + host + " " + port);
+		this.proxy = { 'host': host, 'port': port };
 	}
 }
 
@@ -251,7 +264,12 @@ class RequestBuilder extends kaltura.VolatileRequestData {
 		let callback = this.callback;
 		let requestUrl = this.getUrl(client);
 
-		let options = url.parse(requestUrl);
+		let urlInfo = url.parse(requestUrl);
+		let options = {
+			host : urlInfo.host,
+			path : urlInfo.path,
+			protocol : urlInfo.protocol
+		};
 		options.timeout = client.config.timeout;
 		options.method = 'POST';
 		options.headers = {
@@ -295,7 +313,25 @@ class RequestBuilder extends kaltura.VolatileRequestData {
 			body = jsonBody;
 		}
 
-		var httpInterface = options.protocol === 'http:' ? http : https;
+		client.debug("Using protocol '" + options.protocol + "'");
+		let secure = options.protocol === 'https:';
+		let httpInterface = secure ? https : http;
+		if (client.config && client.config.proxy && client.config.proxy.host) {
+			if (secure) {
+				client.debug("Configuring Proxy Agent for https request");
+				options.agent = new HttpsProxyAgent({
+					host: client.config.proxy.host,
+					port: client.config.proxy.port
+				});
+			} else {
+				client.debug("Configuring Proxy for http request");
+				options.path = urlInfo.href;
+				options.headers.Host = urlInfo.host;
+				options.host = client.config.proxy.host;
+				options.port = client.config.proxy.port;
+			}
+		}
+
 		var request = httpInterface.request(options, function(response) {
 			response.setEncoding('utf8');
 
