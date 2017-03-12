@@ -67,7 +67,7 @@ if (typeof Object.prototype.copyFrom !== 'function') {
 /**
  * Sorts an array by key, maintaining key to data correlations. This is useful
  * mainly for associative arrays.
- * 
+ *
  * @param arr
  *            The array to sort.
  * @return The sorted array.
@@ -88,7 +88,7 @@ function ksort(arr) {
 
 /**
  * Implement to get Kaltura Client logs
- * 
+ *
  */
 class ILogger {
 	log(msg) {
@@ -112,17 +112,17 @@ class ILogger {
  * Kaltura configuration object
  */
 class Configuration {
-	
+
 	constructor() {
 		this.logger = new ILogger();
 		this.serviceUrl = 'http://www.kaltura.com';
 		this.serviceBase = '/api_v3/service';
 		this.timeout = 30000;
 	}
-	
+
 	/**
 	 * Set logger to get kaltura client debug logs.
-	 * 
+	 *
 	 * @param ILogger log
 	 */
 	setLogger(log) {
@@ -131,7 +131,7 @@ class Configuration {
 
 	/**
 	 * Gets the logger (Internal client use)
-	 * 
+	 *
 	 * @return ILogger
 	 */
 	getLogger() {
@@ -141,10 +141,10 @@ class Configuration {
 
 /**
  * Kaltura client constructor
- * 
+ *
  */
 class ClientBase extends kaltura.RequestData {
-	
+
 	/**
 	 * @param Configuration config
 	 */
@@ -156,13 +156,13 @@ class ClientBase extends kaltura.RequestData {
 
 	/**
 	 * getter for the referenced configuration object.
-	 * 
+	 *
 	 * @return Configuration
 	 */
 	getConfig() {
 		return this.config;
 	}
-	
+
 	/**
 	 * @param Configuration config setter for the referenced configuration object.
 	 */
@@ -207,20 +207,20 @@ class RequestBuilder extends kaltura.VolatileRequestData {
 
 	constructor(service = null, action = null, data = null, files = null) {
 		super();
-		
+
 		if(service) {
 			this.service = service;
 			this.action = action;
 			this.data = data;
 			this.files = files;
 		}
-		
+
 		this.callback = null;
 	}
 
 	/**
 	 * Sign array of parameters for requests validation (CRC).
-	 * 
+	 *
 	 * @param array
 	 *            params service action call parameters that will be sent on the
 	 *            request.
@@ -242,7 +242,7 @@ class RequestBuilder extends kaltura.VolatileRequestData {
 
 	/**
 	 * send the http request.
-	 * 
+	 *
 	 * @return array the results and errors inside an array.
 	 */
 	doHttpRequest(client) {
@@ -261,7 +261,7 @@ class RequestBuilder extends kaltura.VolatileRequestData {
 
 		let jsonBody = JSON.stringify(json, (key, value) => (value === null ? undefined : value));
 		client.log('URL: ' + requestUrl + ', JSON: ' + jsonBody);
-		
+
 		let body;
 		if(files && Object.keys(files).length > 0){
 			let crlf = '\r\n';
@@ -272,12 +272,12 @@ class RequestBuilder extends kaltura.VolatileRequestData {
 			postData.push();
 			postData.push(new Buffer(delimiter + crlf + 'Content-Disposition: form-data; name="json"' + crlf + crlf));
 			postData.push(new Buffer(jsonBody));
-			
+
 			for(let key in files) {
 				if(typeof(files[key]) === 'function'){
 					continue;
 				}
-				
+
 				let filePath = files[key];
 				let fileName = path.basename(filePath);
 				let data = fs.readFileSync(filePath);
@@ -315,18 +315,27 @@ class RequestBuilder extends kaltura.VolatileRequestData {
 					}
 				}
 				client.debug('Response server [' + serverId + '] session [' + sessionId + ']: ' + data);
- 
-				let json = JSON.parse(data);
-				if (json && typeof (json) === 'object' && json.code && json.message) {
+
+				try {
+					let json = JSON.parse(data);
+					if (json && typeof (json) === 'object' && json.code && json.message) {
+						if (callback) {
+							callback(false, json);
+						}
+						else {
+							throw new Error(json.message);
+						}
+					}
+					else if (callback) {
+						callback(true, json);
+					}
+				} catch (err) {
 					if (callback) {
-						callback(false, json);
+						callback(false, err);
 					}
 					else {
-						throw new Error(json.message);
+						throw err;
 					}
-				}
-				else if (callback) {
-					callback(true, json);
 				}
 			});
 		});
@@ -418,7 +427,7 @@ class MultiRequestBuilder extends RequestBuilder {
 
 		this.requests = [];
 		this.generalCallback = null;
-		
+
 		let This = this;
 		this.callback = function(success, results) {
 			if (!success)
@@ -492,7 +501,7 @@ class MultiRequestBuilder extends RequestBuilder {
 				}
 			}
 		}
-		
+
 		return this.files;
 	}
 
@@ -500,7 +509,7 @@ class MultiRequestBuilder extends RequestBuilder {
 		if (callback) {
 			this.completion(callback);
 		}
-		
+
 		if(this.generalCallback === null) {
 			let This = this;
 			return new Promise((resolve, reject) => {
